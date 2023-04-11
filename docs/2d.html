@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="株式会社ICS" />
+    <meta name="google" content="notranslate" />
+    <title>Sound Visualizer 3D | ICS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@200&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/common.css" />
+    <style>
+      .container {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        align-items: center;
+        gap: 1px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      @media (width < 365px) {
+        .container {
+          gap: 0;
+        }
+      }
+
+      .container:after {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 1px;
+        position: absolute;
+        top: 50%;
+        left: 0;
+        background: #006edc;
+      }
+      .box {
+        flex: 1;
+        height: 100%;
+        scale: 1 0;
+        background: #fff;
+      }
+    </style>
+    <script type="module">
+      import { useUi } from "./js/common.js";
+
+      /** フーリエ変換を行う分割数。2の乗数でなくてはならない */
+      const FFT_SIZE = 512;
+
+      // HTML要素
+      const containerElement = document.querySelector(".container");
+
+      const { audioElement } = useUi(initSound);
+
+      // -------------------------------------
+      // 2Dの初期化
+      // -------------------------------------
+
+      /** @type {HTMLElement[]} */
+      const boxes = [];
+      // div要素の配置
+      for (let i = 0; i < FFT_SIZE / 2; i++) {
+        const div = document.createElement("div");
+        div.classList.add("box");
+        containerElement.append(div);
+
+        boxes[i] = div;
+      }
+
+      // -------------------------------------
+      // 音の解析
+      // -------------------------------------
+
+      /** @type {AnalyserNode | null} */
+      let nodeAnalyzer = null;
+
+      /**
+       * サウンドを再生します
+       */
+      function initSound() {
+        // サウンドを読み込みます
+        const obj = analyseSound(audioElement);
+        nodeAnalyzer = obj.nodeAnalyser;
+      }
+
+      /**
+       * アナライザーの設定を行います
+       * @param audioElement {HTMLAudioElement}
+       * @return {{nodeAnalyser: AnalyserNode}}
+       */
+      function analyseSound(audioElement) {
+        const context = new AudioContext();
+
+        // アナライザーを生成
+        const nodeAnalyser = context.createAnalyser();
+        // フーリエ変換を行う分割数。2の乗数でなくてはならない
+        nodeAnalyser.fftSize = FFT_SIZE;
+        // 0～1の範囲でデータの動きの速さ 0だともっとも速く、1に近づくほど遅くなる
+        nodeAnalyser.smoothingTimeConstant = 0.85;
+        // オーディオの出力先を設定
+        nodeAnalyser.connect(context.destination);
+
+        // audio 要素と紐付ける
+        const nodeSource = context.createMediaElementSource(audioElement);
+        nodeSource.connect(nodeAnalyser);
+
+        return { nodeAnalyser };
+      }
+
+      /**  繰り返し処理です */
+      function loop() {
+        requestAnimationFrame(loop);
+        draw();
+      }
+
+      /** 描画します */
+      function draw() {
+        if (nodeAnalyzer == null) {
+          return;
+        }
+
+        // 波形データを格納する配列の生成
+        const freqByteData = new Uint8Array(FFT_SIZE / 2);
+        // それぞれの周波数の振幅を取得
+        nodeAnalyzer.getByteFrequencyData(freqByteData);
+
+        // 高さの更新
+        for (let i = 0; i < freqByteData.length; i++) {
+          const freqSum = freqByteData[i];
+          // 値は256段階で取得できるので正規化して 0.0 〜 1.0 の値にする
+          const scale = freqSum / 256;
+
+          // Y軸のスケールを変更
+          const div = boxes[i];
+          div.style.scale = `1 ${scale}`;
+        }
+      }
+      loop();
+    </script>
+  </head>
+  <body>
+    <div class="container"></div>
+
+    <div class="annotation">
+      <h1>Sound Visualizer 2D</h1>
+    </div>
+
+    <button id="btnPlay">PLAY</button>
+    <button id="btnStop" hidden>STOP</button>
+
+    <!--
+    サウンドは以下の記事のものを利用しています。池田が作成した楽曲で、著作権は池田が所有しています。
+    https://clockmaker.jp/blog/2009/02/source_qfilms/
+    -->
+    <audio src="sound/q-films.mp3" id="audio" loop></audio>
+  </body>
+</html>

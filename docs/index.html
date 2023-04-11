@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="株式会社ICS" />
+    <meta name="google" content="notranslate" />
+    <title>Sound Visualizer 3D | ICS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@200&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/common.css" />
+    <style>
+      #canvas {
+        cursor: move;
+      }
+    </style>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.151.3/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.151.3/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { useUi } from "./js/common.js";
+
+      /** フーリエ変換を行う分割数。2の乗数でなくてはならない */
+      const FFT_SIZE = 512;
+
+      const GRID_SIZE = 6000;
+
+      // HTML要素
+      const canvasElement = document.querySelector("#canvas");
+
+      const { audioElement } = useUi(initSound);
+
+      // -------------------------------------
+      // 3Dの初期化
+      // -------------------------------------
+
+      // 3D空間の作成
+      const scene = new THREE.Scene();
+      // カメラの作成
+      const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 200000);
+      camera.position.set(3000, 5000, 5000);
+
+      // カメラコントローラーを作成
+      const controls = new OrbitControls(camera, canvasElement);
+      controls.target.set(-1000, 1500, 0);
+      // 滑らかにカメラコントローラーを制御する
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.02;
+      // マウスホイールでのズームの範囲を指定
+      controls.minDistance = 3000;
+      controls.maxDistance = 10000;
+      // パンできる範囲を指定
+      controls.minPolarAngle = Math.PI / 4;
+      controls.maxPolarAngle = Math.PI / 2.5;
+      controls.autoRotate = true;
+
+      // レンダラーの作成
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        canvas: canvasElement,
+      });
+      renderer.setClearColor(0x000000);
+      renderer.setPixelRatio(devicePixelRatio);
+      renderer.setSize(innerWidth, innerHeight);
+
+      const gridColor = new THREE.Color(0x112233);
+
+      // 地面
+      {
+        const grid = new THREE.GridHelper(GRID_SIZE, 40, gridColor, gridColor);
+        scene.add(grid);
+      }
+      // 壁1
+      {
+        const grid = new THREE.GridHelper(GRID_SIZE, 40, gridColor, gridColor);
+        grid.position.z = -GRID_SIZE / 2;
+        grid.position.y = GRID_SIZE / 2;
+        grid.rotation.x = Math.PI / 2;
+        scene.add(grid);
+      }
+      // 壁2
+      {
+        const grid = new THREE.GridHelper(GRID_SIZE, 40, gridColor, gridColor);
+        grid.position.x = -GRID_SIZE / 2;
+        grid.position.y = GRID_SIZE / 2;
+        grid.rotation.z = Math.PI / 2;
+        scene.add(grid);
+      }
+
+      // 立方体
+      const geometry = new THREE.BoxGeometry(4, GRID_SIZE, 4);
+      const material = new THREE.MeshBasicMaterial({
+        blending: THREE.AdditiveBlending,
+        depthWrite: false, // 深度を更新させないことで、裏側との合成ができる
+      });
+      const mesh = new THREE.InstancedMesh(geometry, material, (FFT_SIZE / 2) ** 2);
+      scene.add(mesh);
+
+      // BOXの配置
+      const MAX = FFT_SIZE / 2;
+      for (let i = 0; i < MAX; i++) {
+        for (let j = 0; j < MAX; j++) {
+          // カラーコード生成
+          const hue = (j / MAX) * 0.5 + 0.5;
+          const saturation = 0.2 + Math.random() * 0.5;
+          const lightness = i === MAX - 1 ? 1 : (0.05 * i) / MAX;
+
+          const color = new THREE.Color();
+          color.setHSL(hue, saturation, lightness);
+
+          const matrix = createMatrix4(i, j, 0);
+
+          const id = i * MAX + j;
+          mesh.setMatrixAt(id, matrix);
+          mesh.setColorAt(id, color);
+          mesh.instanceColor.needsUpdate = true;
+        }
+      }
+
+      // リサイズ処理
+      addEventListener("resize", onResize);
+      onResize();
+
+      // -------------------------------------
+      // 音の解析
+      // -------------------------------------
+
+      /** @type {AnalyserNode | null} */
+      let nodeAnalyzer = null;
+
+      /**
+       * freqByteDataを保持しておく配列
+       * @type {Uint8Array[]}
+       */
+      const freqByteDataArray = [];
+
+      // 音データの初期化
+      for (let i = 0; i < FFT_SIZE / 2; i++) {
+        const array = new Uint8Array(FFT_SIZE / 2);
+        for (let j = 0; j < FFT_SIZE / 2; j++) {
+          array[j] = 0;
+        }
+        freqByteDataArray.push(array);
+      }
+
+      /**
+       * サウンドを再生します
+       */
+      function initSound() {
+        // サウンドを読み込みます
+        const obj = analyseSound(audioElement);
+        nodeAnalyzer = obj.nodeAnalyser;
+      }
+
+      /**
+       * アナライザーの設定を行います
+       * @param audioElement {HTMLAudioElement}
+       * @return {{nodeAnalyser: AnalyserNode}}
+       */
+      function analyseSound(audioElement) {
+        const context = new AudioContext();
+
+        // アナライザーを生成
+        const nodeAnalyser = context.createAnalyser();
+        // フーリエ変換を行う分割数。2の乗数でなくてはならない
+        nodeAnalyser.fftSize = FFT_SIZE;
+        // 0～1の範囲でデータの動きの速さ 0だともっとも速く、1に近づくほど遅くなる
+        nodeAnalyser.smoothingTimeConstant = 0.6;
+        // オーディオの出力先を設定
+        nodeAnalyser.connect(context.destination);
+
+        // audio 要素と紐付ける
+        const nodeSource = context.createMediaElementSource(audioElement);
+        nodeSource.connect(nodeAnalyser);
+
+        return { nodeAnalyser };
+      }
+
+      loop();
+
+      /**  繰り返し処理です */
+      function loop() {
+        requestAnimationFrame(loop);
+        draw();
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      /** 描画します */
+      function draw() {
+        if (nodeAnalyzer == null) {
+          return;
+        }
+
+        // 波形データを格納する配列の生成
+        const freqByteData = new Uint8Array(FFT_SIZE / 2);
+        // それぞれの周波数の振幅を取得
+        nodeAnalyzer.getByteFrequencyData(freqByteData);
+        freqByteDataArray.push(freqByteData);
+        // 古いデータを一つ削除
+        if (freqByteDataArray.length > FFT_SIZE / 2) {
+          freqByteDataArray.shift(); // 配列の先頭を削除
+        }
+
+        // Boxの描画の更新
+        for (let i = 0; i < freqByteDataArray.length; i++) {
+          for (let j = 0; j < freqByteDataArray[i].length; j++) {
+            // 値は256段階で取得できるので正規化して 0.0 〜 1.0 の値にする
+            const freqSum = freqByteDataArray[i][j] / 256;
+
+            // Y軸のスケールを変更
+            const id = (i * FFT_SIZE) / 2 + j;
+            const matrix = createMatrix4(i, j, freqSum);
+
+            mesh.setMatrixAt(id, matrix);
+            mesh.instanceMatrix.needsUpdate = true;
+          }
+        }
+      }
+
+      /**
+       * @param i {number}
+       * @param j {number}
+       * @param value {number} 0.0 〜 1.0
+       */
+      function createMatrix4(i, j, value) {
+        const matrix = new THREE.Matrix4();
+
+        const boxInterval = (GRID_SIZE / FFT_SIZE) * 2;
+        const center = (boxInterval * FFT_SIZE) / 4;
+
+        matrix.setPosition(boxInterval * j - center, 0, boxInterval * i - center);
+        matrix.multiply(new THREE.Matrix4().makeScale(1, Math.max(value, 0.002), 1));
+        matrix.multiply(new THREE.Matrix4().makeTranslation(0, GRID_SIZE / 2, 0));
+
+        return matrix;
+      }
+
+      /**  画面のリサイズ処理です */
+      function onResize() {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="annotation">
+      <h1>Sound Visualizer 3D</h1>
+      <p>Click Play button, and drag stage.</p>
+    </div>
+
+    <button id="btnPlay">PLAY</button>
+    <button id="btnStop" hidden>STOP</button>
+
+    <!--
+    サウンドは以下の記事のものを利用しています。池田が作成した楽曲で、著作権は池田が所有しています。
+    https://clockmaker.jp/blog/2009/02/source_qfilms/
+    -->
+    <audio src="sound/q-films.mp3" id="audio" loop></audio>
+  </body>
+</html>

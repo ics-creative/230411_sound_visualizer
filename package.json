@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "author": "ICS",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "prettier": "^2.8.7"
+  },
+  "scripts": {
+    "prettier": "prettier --write ."
+  }
+}
