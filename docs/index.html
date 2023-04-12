@@ -28,7 +28,7 @@
       import { useUi } from "./js/common.js";
 
       /** フーリエ変換を行う分割数。2の乗数でなくてはならない */
-      const FFT_SIZE = 512;
+      const FFT_SIZE = 256; // 512でも可能だが、念のため少しパフォーマンスをケア
 
       const GRID_SIZE = 6000;
 
@@ -63,7 +63,7 @@
 
       // レンダラーの作成
       const renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        antialias: devicePixelRatio === 1,
         canvas: canvasElement,
       });
       renderer.setClearColor(0x000000);
@@ -95,7 +95,7 @@
       }
 
       // 立方体
-      const geometry = new THREE.BoxGeometry(4, GRID_SIZE, 4);
+      const geometry = new THREE.BoxGeometry(8, GRID_SIZE, 8);
       const material = new THREE.MeshBasicMaterial({
         blending: THREE.AdditiveBlending,
         depthWrite: false, // 深度を更新させないことで、裏側との合成ができる
@@ -110,7 +110,7 @@
           // カラーコード生成
           const hue = (j / MAX) * 0.5 + 0.5;
           const saturation = 0.2 + Math.random() * 0.5;
-          const lightness = i === MAX - 1 ? 1 : (0.05 * i) / MAX;
+          const lightness = i === MAX - 1 ? 1 : (0.1 * i) / MAX;
 
           const color = new THREE.Color();
           color.setHSL(hue, saturation, lightness);
