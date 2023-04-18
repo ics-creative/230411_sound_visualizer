@@ -1,6 +1,6 @@
 # Sound Visualizer
 
-ICS MEDIA 記事「[JavaScript で作成するサウンドビジュアライザー - Web Audio API と HTML Canvas](https://ics.media/entry/9105/)」にて公開しています。
+ICS MEDIA 記事「[JavaScript で作成するサウンドビジュアライザー - Web Audio API と HTML Canvas](https://ics.media/entry/9100/)」にて公開しています。
 
 ## demo
 
