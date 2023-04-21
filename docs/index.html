@@ -238,7 +238,8 @@
         const center = (boxInterval * FFT_SIZE) / 4;
 
         matrix.setPosition(boxInterval * j - center, 0, boxInterval * i - center);
-        matrix.multiply(new THREE.Matrix4().makeScale(1, Math.max(value, 0.002), 1));
+        const yScale = Math.max(value, 0.002);
+        matrix.multiply(new THREE.Matrix4().makeScale(1, yScale, 1));
         matrix.multiply(new THREE.Matrix4().makeTranslation(0, GRID_SIZE / 2, 0));
 
         return matrix;
