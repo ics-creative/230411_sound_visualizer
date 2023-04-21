@@ -13,6 +13,7 @@
         overflow: hidden; /* スクロール防止のため */
         margin: 0;
       }
+      /* 親 */
       .container {
         display: flex;
         height: 100%;
@@ -32,11 +33,12 @@
         left: 0;
         background: #006edc;
       }
+      /* 子 */
       .box {
         flex: 1;
         height: 100%;
         scale: 1 0;
-        background: #fff;
+        background: white;
       }
       audio {
         position: absolute;
@@ -66,12 +68,12 @@
       /** @type {HTMLElement[]} */
       const boxes = [];
       // div要素の配置
-      for (let i = 0; i < FFT_SIZE / 2; i++) {
+      for (let i = 0; i < FFT_SIZE / 2; i++) { // FFT_SIZE / 2 は 64
         const div = document.createElement("div");
         div.classList.add("box");
         containerElement.append(div);
 
-        boxes[i] = div;
+        boxes[i] = div; // 配列に保存
       }
 
       /**
