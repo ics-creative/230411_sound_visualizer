@@ -133,7 +133,7 @@
       // -------------------------------------
 
       /** @type {AnalyserNode | null} */
-      let nodeAnalyzer = null;
+      let nodeAnalyser = null;
 
       /**
        * freqByteDataを保持しておく配列
@@ -156,7 +156,7 @@
       function initSound() {
         // サウンドを読み込みます
         const obj = analyseSound(audioElement);
-        nodeAnalyzer = obj.nodeAnalyser;
+        nodeAnalyser = obj.nodeAnalyser;
       }
 
       /**
@@ -196,14 +196,14 @@
 
       /** 描画します */
       function draw() {
-        if (nodeAnalyzer == null) {
+        if (nodeAnalyser == null) {
           return;
         }
 
         // 波形データを格納する配列の生成
         const freqByteData = new Uint8Array(FFT_SIZE / 2);
         // それぞれの周波数の振幅を取得
-        nodeAnalyzer.getByteFrequencyData(freqByteData);
+        nodeAnalyser.getByteFrequencyData(freqByteData);
         freqByteDataArray.push(freqByteData);
         // 古いデータを一つ削除
         if (freqByteDataArray.length > FFT_SIZE / 2) {
