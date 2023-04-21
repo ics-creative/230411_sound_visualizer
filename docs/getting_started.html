@@ -5,18 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <style>
+      html, body {
+        height: 100%;
+      }
       body {
         background: black;
         overflow: hidden; /* スクロール防止のため */
+        margin: 0;
       }
       .container {
         display: flex;
-        aspect-ratio: 16/9;
+        height: 100%;
         justify-content: center;
         align-items: center;
         gap: 1px;
-        padding: 16px;
-        border: 1px solid #333;
         position: relative;
       }
 
