@@ -67,7 +67,9 @@ button {
 }
 #btnPlay:hover,
 #btnStop:hover {
-  box-shadow: #0777f5ff 0px 0px 10px 0px, #367ce47f 0px 0px 20px 0px;
+  box-shadow:
+    #0777f5ff 0px 0px 10px 0px,
+    #367ce47f 0px 0px 20px 0px;
 }
 @media (width < 768px) {
   #btnPlay,
