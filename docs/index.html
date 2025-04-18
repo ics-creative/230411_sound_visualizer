@@ -17,7 +17,7 @@
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.module.js",
+          "three": "https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.webgpu.js",
           "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.175.0/examples/jsm/"
         }
       }
@@ -62,12 +62,15 @@
       controls.autoRotate = true;
 
       // レンダラーの作成
-      const renderer = new THREE.WebGLRenderer({
+      const renderer = new THREE.WebGPURenderer({
         antialias: devicePixelRatio === 1,
         canvas: canvasElement,
       });
-      renderer.setClearColor(0x000000);
       renderer.setPixelRatio(devicePixelRatio);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      await renderer.init(); // WebGPURendererの初期化完了を待つ
+
+      renderer.setClearColor(0x000000);
       renderer.setSize(innerWidth, innerHeight);
 
       const gridColor = new THREE.Color(0x112233);
@@ -97,6 +100,7 @@
       // 立方体
       const geometry = new THREE.BoxGeometry(8, GRID_SIZE, 8);
       const material = new THREE.MeshBasicMaterial({
+        transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false, // 深度を更新させないことで、裏側との合成ができる
       });
@@ -109,8 +113,8 @@
         for (let j = 0; j < MAX; j++) {
           // カラーコード生成
           const hue = (j / MAX) * 0.5 + 0.5;
-          const saturation = 0.2 + Math.random() * 0.5;
-          const lightness = i === MAX - 1 ? 1 : (0.1 * i) / MAX;
+          const saturation = 0.6 + Math.random() * 0.4;
+          const lightness = i === MAX - 1 ? 1 : (0.15 * i) / MAX;
 
           const color = new THREE.Color();
           color.setHSL(hue, saturation, lightness);
